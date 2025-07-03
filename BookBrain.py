@@ -5,14 +5,17 @@ from dataclasses import dataclass
 from enum import Enum
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from dotenv import load_dotenv
+import os
 
 
 app = Flask(__name__)
 CORS(app)
+load_dotenv()
 
 # Configuration
 class Config:
-    ANTHROPIC_API_KEY = "BLANK"  # Replace with your actual API key
+    ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
     MODEL = "claude-sonnet-4-20250514"  # Latest Sonnet model
     MAX_TOKENS = 4000
     TEMPERATURE = 0.3 # Lower for more consistent responses
@@ -96,7 +99,12 @@ class BookBrainAI:
     
     def voice_question(self, context: ReadingContext, voice_info: str):
 
-        return self._make_request(voice_info)
+        prompt = f"""You're an intelligent reading assistant helping a user recall information from a book they are reading. They are currently in Chapter {context.current_chapter}, Page {context.current_page}, of {context.book_title} by {context.author}. Their question is: "{voice_info}"
+
+        Keep the tone friendly and clear, and avoid spoilers for future chapters if possible. Ensure that there ar no halluciantions. Take your time and provide an accurate answer without asking any follow-up questions. Provide a confidence rating. This should reflect how confident you feel about the answer provided"""
+        print(prompt)
+        return self._make_request(prompt)
+
     
     def resolve_nickname(self, nickname_description: str, context: ReadingContext) -> str:
         """Resolve vague character descriptions to actual character names"""
@@ -298,7 +306,7 @@ def voice_assistant_with_context():
         ai = BookBrainAI()  # Make sure to set your API key in Config
         print("=== Voice Assistant ===")
         # response = ai.character_lookup("Taffa", context)
-        answer = ai.voice_question(data["voice_info"])
+        answer = ai.voice_question(context, data["voice_string"])
         print(answer)
         return jsonify({"answer": answer})
         
