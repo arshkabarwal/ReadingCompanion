@@ -3,13 +3,19 @@ import json
 from typing import Dict, List, Optional
 from dataclasses import dataclass
 from enum import Enum
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+
+
+app = Flask(__name__)
+CORS(app)
 
 # Configuration
 class Config:
-    ANTHROPIC_API_KEY = "KEY"  # Replace with your actual API key
-    MODEL = "claude-3-5-sonnet-20241022"  # Latest Sonnet model
+    ANTHROPIC_API_KEY = "BLANK"  # Replace with your actual API key
+    MODEL = "claude-sonnet-4-20250514"  # Latest Sonnet model
     MAX_TOKENS = 4000
-    TEMPERATURE = 0.3  # Lower for more consistent responses
+    TEMPERATURE = 0.3 # Lower for more consistent responses
 
 # Data structures
 @dataclass
@@ -50,8 +56,13 @@ class BookBrainAI:
                 model=Config.MODEL,
                 max_tokens=max_tokens,
                 temperature=Config.TEMPERATURE,
+                system=(
+                "You are BookBrain, a helpful, spoiler-aware AI assistant who helps users recall information from books. "
+                "You only answer based on chapters the user has already read. Use a friendly, concise tone. Avoid spoilers."
+            ),
                 messages=[{"role": "user", "content": prompt}]
             )
+
             return response.content[0].text
         except Exception as e:
             print(f"API Error: {e}")
@@ -59,97 +70,79 @@ class BookBrainAI:
     
     def character_lookup(self, character_name: str, context: ReadingContext) -> str:
         """Look up a specific character with spoiler protection"""
-        prompt = f"""
-You are BookBrain, an AI assistant that helps readers remember characters without spoilers.
+        prompt = f"""You're an intelligent reading assistant helping a user recall information from a book they are reading. They are currently in Chapter {context.current_chapter}, Page {context.current_page}, of {context.book_title} by {context.author}. Their question is: "{"Who is Dalinar?"}"
 
-Book: "{context.book_title}" by {context.author}
-User's Current Position: {self._format_position(context)}
-Character Query: "{character_name}"
-
-Provide a character summary that includes:
-1. Character's full name and any common nicknames/titles
-2. Basic role/occupation in the story
-3. Key relationships to main characters (as known up to user's current position)
-4. Important personality traits or distinguishing features
-5. Brief summary of their role in the plot SO FAR
-
-CRITICAL: Do not include any information about events that happen after the user's current reading position. If there are future developments, simply note "appears in later chapters."
-
-Keep the response concise but helpful - aim for 3-4 sentences that would jog the user's memory.
-"""
+        Keep the tone friendly and clear, and avoid spoilers for future chapters if possible. Ensure that there ar no halluciantions. Take your time and provide an accurate answer without asking any follow-up questions. Provide a confidence rating. This should reflect how confident you feel about the anser provided"""
+        print(prompt)
         return self._make_request(prompt)
     
-    def catch_up_summary(self, character_name: str, context: ReadingContext, 
+    def catch_up_summary(self, context: ReadingContext, 
                         user_last_memory: str = None) -> str:
         """Provide a 'catch me up' summary for when users return to a book"""
-        last_memory_text = f"\nUser's last memory: \"{user_last_memory}\"" if user_last_memory else ""
+
+        # prompt = f"""You're an intelligent reading assistant helping a user recall information from a book they are reading. They are currently in Chapter {context.current_chapter}, Page {context.current_page}, of {context.book_title} by {context.author}. Create a quick paragraph summary of what happened in the last chapter."
+
+        # Keep the tone friendly and clear, and avoid spoilers for future chapters. Take your time and provide an accurate answer without asking any follow-up questions. Provide a confidence rating."""
+
+        prompt = f"""You're an intelligent reading assistant helping a user recall information from a book they are reading. They are currently in Chapter {context.current_chapter}, Page {context.current_page}, of {context.book_title} by {context.author}. Create a quick paragraph summary of what happened in the last chapter."
+
+        Keep the tone friendly and clear, and avoid spoilers for future chapters. Take your time and provide an accurate answer without asking any follow-up questions."""
+        print(prompt)
+    
+        # """Provide a 'catch me up' summary for when users return to a book"""
+        # last_memory_text = f"\nUser's last memory: \"{user_last_memory}\"" if user_last_memory else ""
         
-        prompt = f"""
-You are BookBrain, helping a reader who took a break from reading and needs to remember what was happening with a character.
-
-Book: "{context.book_title}" by {context.author}
-User's Current Position: {self._format_position(context)}
-Character: {character_name}{last_memory_text}
-
-Provide a catch-up summary that includes:
-1. Brief reminder of who this character is (1 sentence)
-2. What this character was doing in their most recent scenes
-3. Current relationships/conflicts involving this character
-4. What situation they were in when last seen
-5. Any important character development up to this point
-
-Keep it focused and conversational - like you're reminding a friend what happened in a show they stopped watching.
-Avoid spoilers beyond their current reading position.
-"""
         return self._make_request(prompt)
+    
+    def voice_question(self, context: ReadingContext, voice_info: str):
+
+        return self._make_request(voice_info)
     
     def resolve_nickname(self, nickname_description: str, context: ReadingContext) -> str:
         """Resolve vague character descriptions to actual character names"""
         prompt = f"""
-You are BookBrain, helping a reader identify a character from a vague description.
+        You are BookBrain, helping a reader identify a character from a vague description.
 
-Book: "{context.book_title}" by {context.author}
-User's Current Position: {self._format_position(context)}
-User's Description: "{nickname_description}"
+        Book: "{context.book_title}" by {context.author}
+        User's Current Position: {self._format_position(context)}
+        User's Description: "{nickname_description}"
 
-Based on the description, identify which character the user is likely referring to:
-1. Provide the character's actual name
-2. Explain why this character matches the description
-3. Give 2-3 key identifying traits that confirm this is the right character
-4. Briefly note their role in the story up to the user's current position
-
-If multiple characters could match, list the most likely candidates with brief explanations.
-Only consider characters that have appeared up to the user's reading position.
-"""
-        return self._make_request(prompt)
+        return self._make_request(prompt)"""
     
     def map_relationships(self, focus_character: str, context: ReadingContext) -> str:
         """Map character relationships for complex family trees or social networks"""
         prompt = f"""
-You are BookBrain, helping a reader understand character relationships.
+        You are BookBrain, helping a reader understand character relationships.
 
-Book: "{context.book_title}" by {context.author}
-User's Current Position: {self._format_position(context)}
-Focus: Relationships involving "{focus_character}"
+        Book: "{context.book_title}" by {context.author}
+        User's Current Position: {self._format_position(context)}
+        Focus: Relationships involving "{focus_character}"
 
-Create a relationship map that includes:
-1. Direct family relationships (if applicable)
-2. Close friends and allies
-3. Enemies or rivals
-4. Romantic interests (if any)
-5. Professional/hierarchical relationships
+        Create a relationship map that includes:
+        1. Direct family relationships (if applicable)
+        2. Close friends and allies
+        3. Enemies or rivals
+        4. Romantic interests (if any)
+        5. Professional/hierarchical relationships
 
-Format as a clear list with relationship types:
-- Family: [list family members and their relation]
-- Allies: [list allies and why they're allied]
-- Conflicts: [list conflicts and brief context]
-- Other: [other significant relationships]
+        Format as a clear list with relationship types:
+        - Family: [list family members and their relation]
+        - Allies: [list allies and why they're allied]
+        - Conflicts: [list conflicts and brief context]
+        - Other: [other significant relationships]
 
-Only include relationships established up to the user's current reading position.
-Keep descriptions brief but clear enough to understand the dynamic.
-"""
+        Only include relationships established up to the user's current reading position.
+        Keep descriptions brief but clear enough to understand the dynamic.
+        """
         return self._make_request(prompt)
     
+    def create_comprehension_quizzes(self, context: ReadingContext) -> str:
+        """Create comprehension quizzes for the user"""
+        prompt = f"""You're an intelligent reading assistant helping a user recall information from a book they are reading. They are currently in Chapter {context.current_chapter}, Page {context.current_page}, of {context.book_title} by {context.author}. Create a fun and easy comprehension quiz for them based on their progress"
+
+        Keep the tone friendly and clear, and avoid spoilers for future chapters if possible. Ensure that there ar no halluciantions. Take your time and provide an accurate answer without asking any follow-up questions."""
+        
+        return self._make_request(prompt)
 #     def extract_characters_from_text(self, book_text: str, book_info: ReadingContext) -> str:
 #         """Extract and catalog characters from book text (for building initial database)"""
 #         prompt = f"""
@@ -199,49 +192,121 @@ Keep descriptions brief but clear enough to understand the dynamic.
         
         return " | ".join(position_parts) if position_parts else "Beginning of book"
 
-# Usage Examples
-def main():
-    # Initialize the AI client
-    ai = BookBrainAI()  # Make sure to set your API key in Config
-    
-    # Example usage scenarios
-    
-    # 1. Basic character lookup
-    context = ReadingContext(
-        book_title="The Name of the Wind",
-        author="Patrick Rothfuss",
-        current_chapter="Chapter 45",
-        progress_percentage=68
-    )
-    
-    print("=== Character Lookup Example ===")
-    response = ai.character_lookup("Kilvin", context)
-    print(response)
-    print("\n" + "="*50 + "\n")
-    
-    # 2. Nickname resolution
-    print("=== Nickname Resolution Example ===")
-    response = ai.resolve_nickname("the grumpy mentor guy who teaches magic", context)
-    print(response)
-    print("\n" + "="*50 + "\n")
-    
-    # 3. Catch-up summary
-    print("=== Catch-Up Summary Example ===")
-    response = ai.catch_up_summary(
-        "Denna", 
-        context, 
-        "I remember she was a musician or something and Kvothe liked her"
-    )
-    print(response)
-    print("\n" + "="*50 + "\n")
-    
-    # 4. Relationship mapping
-    print("=== Relationship Mapping Example ===")
-    response = ai.map_relationships("Kvothe", context)
-    print(response)
 
+def obtain_and_create_progress(data):
+    # TODO: make current page optional
+    # required_fields = ["character_name", "book_title", "author", "current_chapter", "current_page"]
+    required_fields = ["book_title", "author", "current_chapter", "current_page"]
+
+    for field in required_fields:
+        if field not in data:
+            return jsonify({"error": f"Missing field: {field}"}), 400
+    
+    context = ReadingContext(
+        book_title=data["book_title"],
+        author=data["author"],
+        current_chapter=data["current_chapter"],
+        current_page=data["current_page"]
+    )
+
+    return context
+
+# Usage Examples
+@app.route("/recall", methods=["POST"])
+def recall():
+    try:
+        data = request.get_json()
+
+        context = obtain_and_create_progress(data)
+
+         # Initialize the AI client
+        ai = BookBrainAI()  # Make sure to set your API key in Config
+        print("=== Character Lookup Example ===")
+        # response = ai.character_lookup("Taffa", context)
+        # answer = ai.character_lookup(data["character_name"], context)
+        answer = ai.character_lookup("Dalinar", context)
+        print(answer)
+        return jsonify({"answer": answer})
+        print(response)
+        print("\n" + "="*50 + "\n")
+        
+        # # 2. Nickname resolution
+        # Add Nickname is in the future and then customer can fetch it
+        # print("=== Nickname Resolution Example ===")
+        # response = ai.resolve_nickname("the grumpy mentor guy who teaches magic", context)
+        # print(response)
+        # print("\n" + "="*50 + "\n")
+        
+        # # 3. Catch-up summary
+        # print("=== Catch-Up Summary Example ===")
+        # response = ai.catch_up_summary(
+        #     "Denna", 
+        #     context, 
+        #     "I remember she was a musician or something and Kvothe liked her"
+        # )
+        # print(response)
+        # print("\n" + "="*50 + "\n")
+        
+        # # 4. Relationship mapping
+        # print("=== Relationship Mapping Example ===")
+        # response = ai.map_relationships("Kvothe", context)
+        # print(response)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/summary", methods=["POST"])
+def summary():
+    try:
+        data = request.get_json()
+        # Validate input
+        context = obtain_and_create_progress(data)
+         # Initialize the AI client
+        ai = BookBrainAI()  # Make sure to set your API key in Config
+        print("=== Catch me up Summary ===")
+        # response = ai.character_lookup("Taffa", context)
+        answer = ai.catch_up_summary(context)
+        print(answer)
+        return jsonify({"answer": answer})
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+@app.route("/comprehension_quiz", methods=["POST"])
+def comprehension_quiz():
+    try:
+        data = request.get_json()
+
+        context = obtain_and_create_progress(data)
+         # Initialize the AI client
+        ai = BookBrainAI()  # Make sure to set your API key in Config
+        print("=== Comprehension Quiz ===")
+        # response = ai.character_lookup("Taffa", context)
+        answer = ai.create_comprehension_quizzes(context)
+        print(answer)
+        return jsonify({"answer": answer})
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+@app.route("/voice-assistant", methods=["POST"])
+def voice_assistant_with_context():
+    try:
+        data = request.get_json()
+        # Validate input
+        context = obtain_and_create_progress(data)
+         # Initialize the AI client
+        ai = BookBrainAI()  # Make sure to set your API key in Config
+        print("=== Voice Assistant ===")
+        # response = ai.character_lookup("Taffa", context)
+        answer = ai.voice_question(data["voice_info"])
+        print(answer)
+        return jsonify({"answer": answer})
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
 if __name__ == "__main__":
-    main()
+    app.run(debug=True)
 
 # Additional utility functions for your backend
 
