@@ -2,3 +2,4 @@ flask
 gunicorn
 anthropic
 python-dotenv
+flask_cors 
