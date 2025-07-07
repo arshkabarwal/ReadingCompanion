@@ -6,12 +6,16 @@ from enum import Enum
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
+from werkzeug.utils import secure_filename
 import os
 
 
 app = Flask(__name__)
 CORS(app)
 load_dotenv()
+UPLOAD_FOLDER = "./uploads"
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # Configuration
 class Config:
@@ -232,7 +236,7 @@ def recall():
         print("=== Character Lookup Example ===")
         # response = ai.character_lookup("Taffa", context)
         # answer = ai.character_lookup(data["character_name"], context)
-        answer = ai.character_lookup("Dalinar", context)
+        answer = ai.character_lookup(data["character_name"], context)
         print(answer)
         return jsonify({"answer": answer})
         print(response)
@@ -245,15 +249,6 @@ def recall():
         # print(response)
         # print("\n" + "="*50 + "\n")
         
-        # # 3. Catch-up summary
-        # print("=== Catch-Up Summary Example ===")
-        # response = ai.catch_up_summary(
-        #     "Denna", 
-        #     context, 
-        #     "I remember she was a musician or something and Kvothe liked her"
-        # )
-        # print(response)
-        # print("\n" + "="*50 + "\n")
         
         # # 4. Relationship mapping
         # print("=== Relationship Mapping Example ===")
@@ -309,6 +304,22 @@ def voice_assistant_with_context():
         answer = ai.voice_question(context, data["voice_string"])
         print(answer)
         return jsonify({"answer": answer})
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/upload-pdf", methods=["POST"])
+def upload_pdf():
+    try:
+        file = request.files.get('pdf')
+        print(file)
+        if file and file.filename.endswith(".pdf"):
+            filename = secure_filename(file.filename)
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(filepath)
+            return {"status": "success", "path": filepath}, 200
+        
+        return {"error": "No PDF file provided"}, 400
         
     except Exception as e:
         return jsonify({"error": str(e)}), 500
