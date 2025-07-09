@@ -77,7 +77,7 @@ class BookBrainAI:
     
     def character_lookup(self, character_name: str, context: ReadingContext) -> str:
         """Look up a specific character with spoiler protection"""
-        prompt = f"""You're an intelligent reading assistant helping a user recall information from a book they are reading. They are currently in Chapter {context.current_chapter}, Page {context.current_page}, of {context.book_title} by {context.author}. Their question is: "{"Who is Dalinar?"}"
+        prompt = f"""You're an intelligent reading assistant helping a user recall information from a book they are reading. They are currently in Chapter {context.current_chapter}, Page {context.current_page}, of {context.book_title} by {context.author}. Their question is: "{"Who is {character_name}?"}"
 
         Keep the tone friendly and clear, and avoid spoilers for future chapters if possible. Ensure that there ar no halluciantions. Take your time and provide an accurate answer without asking any follow-up questions. Provide a confidence rating. This should reflect how confident you feel about the anser provided"""
         print(prompt)
@@ -150,9 +150,9 @@ class BookBrainAI:
     
     def create_comprehension_quizzes(self, context: ReadingContext) -> str:
         """Create comprehension quizzes for the user"""
-        prompt = f"""You're an intelligent reading assistant helping a user recall information from a book they are reading. They are currently in Chapter {context.current_chapter}, Page {context.current_page}, of {context.book_title} by {context.author}. Create a fun and easy comprehension quiz for them based on their progress"
+        prompt = f"""You're an intelligent reading assistant helping a user recall information from a book they are reading. They are currently in Chapter {context.current_chapter}, Page {context.current_page}, of {context.book_title} by {context.author}. Create a fun and easy comprehension quiz for them based on their progress. Also provide the answer key and make it clear what is the answer key in response."
 
-        Keep the tone friendly and clear, and avoid spoilers for future chapters if possible. Ensure that there ar no halluciantions. Take your time and provide an accurate answer without asking any follow-up questions."""
+        Keep the tone friendly and clear, and avoid spoilers for future chapters if possible. Ensure that there ar no halluciantions. Ensure no follow-up questions."""
         
         return self._make_request(prompt)
 #     def extract_characters_from_text(self, book_text: str, book_info: ReadingContext) -> str:
@@ -234,13 +234,10 @@ def recall():
          # Initialize the AI client
         ai = BookBrainAI()  # Make sure to set your API key in Config
         print("=== Character Lookup Example ===")
-        # response = ai.character_lookup("Taffa", context)
-        # answer = ai.character_lookup(data["character_name"], context)
         answer = ai.character_lookup(data["character_name"], context)
         print(answer)
         return jsonify({"answer": answer})
-        print(response)
-        print("\n" + "="*50 + "\n")
+
         
         # # 2. Nickname resolution
         # Add Nickname is in the future and then customer can fetch it
