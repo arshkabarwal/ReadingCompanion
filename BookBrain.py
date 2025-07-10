@@ -75,6 +75,24 @@ class BookBrainAI:
             print(f"API Error: {e}")
             return f"Error: Unable to process request - {str(e)}"
     
+    def continue_conversation(self, conversation_history: list, max_tokens: int = Config.MAX_TOKENS) -> str:
+        """Handle multi-turn conversations with memory (chat mode)"""
+        try:
+            response = self.client.messages.create(
+                model=Config.MODEL,
+                max_tokens=max_tokens,
+                temperature=Config.TEMPERATURE,
+                system=(
+                    "You are BookBrain, a helpful, spoiler-aware AI assistant who helps users recall information from books. "
+                    "You only answer based on chapters the user has already read. Use a friendly, concise tone. Avoid spoilers."
+                ),
+                messages=conversation_history
+            )
+            return response.content[0].text
+        except Exception as e:
+            print(f"API Error (chat): {e}")
+            return f"Error: Unable to process conversation - {str(e)}"
+        
     def character_lookup(self, character_name: str, context: ReadingContext) -> str:
         """Look up a specific character with spoiler protection"""
         prompt = (
@@ -116,6 +134,13 @@ class BookBrainAI:
         print(prompt)
         return self._make_request(prompt)
 
+    def chat_question(self, context: ReadingContext, general_info: str, conversation_history: list) -> str:
+
+        prompt = f"""You're an intelligent reading assistant helping a user recall information from a book they are reading. They are currently in Chapter {context.current_chapter}, Page {context.current_page}, of {context.book_title} by {context.author}. Their question is: "{general_info}"
+
+        Keep the tone friendly and clear, and avoid spoilers for future chapters if possible. Ensure that there ar no halluciantions. Take your time and provide an accurate answer without asking any follow-up questions. Provide a confidence rating. This should reflect how confident you feel about the answer provided"""
+        print(prompt)
+        return self.continue_conversation(prompt, conversation_history)
     
     def resolve_nickname(self, nickname_description: str, context: ReadingContext) -> str:
         """Resolve vague character descriptions to actual character names"""
@@ -157,11 +182,101 @@ class BookBrainAI:
     
     def create_comprehension_quizzes(self, context: ReadingContext) -> str:
         """Create comprehension quizzes for the user"""
-        prompt = f"""You're an intelligent reading assistant helping a user recall information from a book they are reading. They are currently in Chapter {context.current_chapter}, Page {context.current_page}, of {context.book_title} by {context.author}. Create a fun and easy comprehension quiz for them based on their progress. Also provide the answer key and make it clear what is the answer key in response."
+        prompt = f"""You're an intelligent reading assistant helping a user recall information from a book they are reading. 
+            The user is currently in Chapter {context.current_chapter}, Page {context.current_page}, of "{context.book_title}" by {context.author}.
 
-        Keep the tone friendly and clear, and avoid spoilers for future chapters if possible. Ensure that there ar no halluciantions. Ensure no follow-up questions."""
-        
+            Create a fun and easy reading comprehension quiz for them based only on what has happened so far.
+
+            Requirements:
+            - Provide 2 multiple choice questions.
+            - Each question must include:
+                - "question": the question text
+                - "options": a list of 4 possible answers
+                - "answer": the correct answer (must match one of the options exactly)
+                - "explanation": a brief reason why this is the correct answer
+
+            ⚠️ Rules:
+            - Avoid spoilers from future chapters.
+            - Do not ask follow-up questions.
+            - Ensure there are no hallucinations.
+            - Be concise, friendly, and accurate.
+
+            Return your response in **valid JSON** with the following format:
+
+            {{
+            "questions": [
+                {{
+                "question": "...",
+                "options": ["...", "...", "...", "..."],
+                "answer": "...",
+                "explanation": "..."
+                }},
+                ...
+            ]
+            }}
+
+            Output only the JSON object and nothing else.
+            """
         return self._make_request(prompt)
+
+    def preset_characters_in_character_gallery(self, context: ReadingContext) -> str:
+        """Add characters to the character gallery"""
+        prompt = (
+            f"You're an intelligent reading assistant helping display main characters from a book the user is reading. "
+            f"They are currently in Chapter {context.current_chapter}, Page {context.current_page}, "
+            f"of '{context.book_title}' by {context.author}.\n\n"
+            "Extract all the main characters introduced up to this point and provide their details.\n"
+            "For each character, include the following fields:\n"
+            "- name: Full name if available\n"
+            "- nicknames: Any nicknames, titles, or alternative names mentioned\n"
+            "- description: A basic 1-sentence role or description\n"
+            "- traits: 2 to 3 key personality or physical traits\n"
+            "- relationships: Brief notes on their relationships with other characters so far\n"
+            "- last_appearance: The last chapter or scene they were mentioned\n"
+            "- confidence: Confidence rating (High, Medium, Low)\n\n"
+
+            "⚠️ Important:\n"
+            "- Do not include spoilers for future chapters\n"
+            "- Only mention what has been revealed so far in the book\n"
+            "- Ensure all output is grounded in the book's content (no hallucinations)\n"
+            "- Avoid follow-up questions\n\n"
+
+            "Respond with only a valid JSON object in the following format:\n"
+            "{\n"
+            "  \"characters\": [\n"
+            "    {\n"
+            "      \"name\": \"...\",\n"
+            "      \"nicknames\": [\"...\", \"...\"],\n"
+            "      \"description\": \"...\",\n"
+            "      \"traits\": [\"...\", \"...\"],\n"
+            "      \"relationships\": \"...\",\n"
+            "      \"last_appearance\": \"Chapter X, Page Y\",\n"
+            "      \"confidence\": \"High\"\n"
+            "    },\n"
+            "    ...\n"
+            "  ]\n"
+            "}"
+        )
+        return self._make_request(prompt)
+
+    # def preset_characters_in_character_gallery(self, context: ReadingContext) -> str:
+    #     """Add characters to the character gallery"""
+    #     prompt = (
+    #         f"You're an intelligent reading assistant helping display main characters from a book they are reading. "
+    #         f"They are currently in Chapter {context.current_chapter}, Page {context.current_page}, "
+    #         f"of '{context.book_title}' by {context.author}.\n\n"
+    #         "Extract all the main characters up to this point in the book and provide:\n"
+    #         "1. Character name (full name if available)\n"
+    #         "2. Any nicknames, titles, or alternative names mentioned\n"
+    #         "3. Basic role/description in a sentence\n"
+    #         "4. Important 2-3 traits or characteristics noted\n"
+    #         "5. Key relationships with other characters mentioned up to this point\n"
+    #         "Keep the tone friendly and clear, and avoid spoilers for future chapters if possible. "
+    #         "Ensure that there are no hallucinations. Take your time and provide an accurate answer "
+    #         "without asking any follow-up questions.\n\n"
+    #         "Also, include a confidence rating (e.g., High, Medium, Low) based on how certain you are of the answer."
+    #     )
+    #     return self._make_request(prompt)
 #     def extract_characters_from_text(self, book_text: str, book_info: ReadingContext) -> str:
 #         """Extract and catalog characters from book text (for building initial database)"""
 #         prompt = f"""
@@ -325,6 +440,59 @@ def upload_pdf():
         
         return {"error": "No PDF file provided"}, 400
         
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/preset_characters_to_gallery", methods=["POST"])
+def preset_character_gallery():
+    try:
+        data = request.get_json()
+        # Validate input
+        context = obtain_and_create_progress(data)
+         # Initialize the AI client
+        ai = BookBrainAI()  # Make sure to set your API key in Config
+        print("=== Voice Assistant ===")
+        # response = ai.character_lookup("Taffa", context)
+        answer = ai.preset_characters_in_character_gallery(context)
+        print(answer)
+        return jsonify({"answer": answer})
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+
+# In-memory storage for demo purposes
+user_sessions = {}
+
+@app.route("/chat", methods=["POST"])
+def chat():
+    try:
+        data = request.json
+        user_id = data.get("user_id")
+        message = data.get("message")
+        conversation_history = data.get("conversation_history", [])
+        context = obtain_and_create_progress(data)
+       
+        conversation_history.append({
+            "role": "user",
+            "content": message
+        })
+
+        ai = BookBrainAI()
+        print("=== Chat question ===")
+        answer = ai.chat_question(context, message, conversation_history)
+
+        
+        conversation_history.append({
+            "role": "assistant",
+            "content": answer
+        })
+
+        return jsonify({
+            "answer": answer,
+            "conversation_history": conversation_history
+        })
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     
