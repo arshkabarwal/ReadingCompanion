@@ -467,7 +467,7 @@ user_sessions = {}
 @app.route("/chat", methods=["POST"])
 def chat():
     try:
-        data = request.json
+        data = request.get_json()
         user_id = data.get("user_id")
         message = data.get("message")
         conversation_history = data.get("conversation_history", [])
