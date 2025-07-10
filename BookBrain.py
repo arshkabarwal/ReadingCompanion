@@ -188,7 +188,7 @@ class BookBrainAI:
             Create a fun and easy reading comprehension quiz for them based only on what has happened so far.
 
             Requirements:
-            - Provide 2 multiple choice questions.
+            - Provide 7-10 multiple choice questions.
             - Each question must include:
                 - "question": the question text
                 - "options": a list of 4 possible answers
@@ -196,7 +196,7 @@ class BookBrainAI:
                 - "explanation": a brief reason why this is the correct answer
 
             ⚠️ Rules:
-            - Avoid spoilers from future chapters.
+            - Abosolutely avoid spoilers from future chapters. This should be a priority.
             - Do not ask follow-up questions.
             - Ensure there are no hallucinations.
             - Be concise, friendly, and accurate.
