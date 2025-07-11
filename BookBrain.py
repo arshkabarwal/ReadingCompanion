@@ -116,14 +116,24 @@ class BookBrainAI:
 
         # Keep the tone friendly and clear, and avoid spoilers for future chapters. Take your time and provide an accurate answer without asking any follow-up questions. Provide a confidence rating."""
 
-        prompt = f"""You're an intelligent reading assistant helping a user recall information from a book they are reading. They are currently in Chapter {context.current_chapter}, Page {context.current_page}, of {context.book_title} by {context.author}. Create a quick paragraph summary of what happened in the last chapter."
+        prompt = f"""
+            You are BookBrain, an intelligent reading assistant helping a user recall information from a book they are reading.
 
-        Keep the tone friendly and clear, and avoid spoilers for future chapters. Take your time and provide an accurate answer without asking any follow-up questions."""
+            They are currently on Chapter {context.current_chapter}, Page {context.current_page}, of *{context.book_title}* by {context.author}. 
+            The user has just finished reading the previous chapter.
+
+            Please generate a **brief, spoiler-free** summary of ONLY the last completed chapter — using information strictly up to this point in the book.
+
+            ⚠️ Do not include events, characters, or developments from later chapters or pages. 
+            If you are unsure or lack context, say so politely instead of guessing.
+
+            Use a friendly and clear tone.
+            Do not ask any follow-up questions.
+            Avoid speculation and hallucination.
+            Respond with a confidence rating (e.g. High, Medium, Low) at the end.
+            """
         print(prompt)
-    
-        # """Provide a 'catch me up' summary for when users return to a book"""
-        # last_memory_text = f"\nUser's last memory: \"{user_last_memory}\"" if user_last_memory else ""
-        
+
         return self._make_request(prompt)
     
     def voice_question(self, context: ReadingContext, voice_info: str):
