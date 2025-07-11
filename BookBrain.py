@@ -135,12 +135,22 @@ class BookBrainAI:
         return self._make_request(prompt)
 
     def chat_question(self, context: ReadingContext, general_info: str, conversation_history: list) -> str:
+        """Handles a new chat question from the user"""
+        
+        # Add the current user question as a new message
+        conversation_history.append({
+            "role": "user",
+            "content": f"""You're an intelligent reading assistant helping a user recall information from a book they are reading. 
+            They are currently in Chapter {context.current_chapter}, Page {context.current_page}, of {context.book_title} by {context.author}. 
+            Their question is: "{general_info}"
 
-        prompt = f"""You're an intelligent reading assistant helping a user recall information from a book they are reading. They are currently in Chapter {context.current_chapter}, Page {context.current_page}, of {context.book_title} by {context.author}. Their question is: "{general_info}"
+            Keep the tone friendly and clear, and avoid spoilers for future chapters if possible. Ensure that there are no hallucinations. 
+            Take your time and provide an accurate answer without asking any follow-up questions. 
+            Provide a confidence rating that reflects how confident you feel about the answer provided."""
+        })
 
-        Keep the tone friendly and clear, and avoid spoilers for future chapters if possible. Ensure that there ar no halluciantions. Take your time and provide an accurate answer without asking any follow-up questions. Provide a confidence rating. This should reflect how confident you feel about the answer provided"""
-        print(prompt)
-        return self.continue_conversation(prompt, conversation_history)
+        # Pass the full message list into the Claude chat
+        return self.continue_conversation(conversation_history)
     
     def resolve_nickname(self, nickname_description: str, context: ReadingContext) -> str:
         """Resolve vague character descriptions to actual character names"""
@@ -481,7 +491,7 @@ def chat():
         ai = BookBrainAI()
         print("=== Chat question ===")
         answer = ai.chat_question(context, message, conversation_history)
-
+        print(answer)
         
         conversation_history.append({
             "role": "assistant",
