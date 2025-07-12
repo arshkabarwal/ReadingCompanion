@@ -72,14 +72,21 @@ class PdfManager:
             print(f"Error loading PDF text: {e}")
             return None
 
-    def extract_context(self, page: int, char_window: int = 1500) -> Optional[str]:
+    def extract_context(self, page: Optional[int], char_window: int = 1500) -> Optional[str]:
         text = self.load_text()
         if not text:
             return None
+
+        try:
+            page = int(page) if page is not None else 1
+        except ValueError:
+            page = 1
+
         try:
             start = max(0, (page - 3) * char_window)
             end = min(len(text), (page + 1) * char_window)
-            return text[start:end]
+            sliced = text[start:end]
+            return sliced if sliced and len(sliced.strip()) > 100 else text[:3000]
         except Exception as e:
             print(f"Context slicing error: {e}")
             return text[:3000]
@@ -144,7 +151,7 @@ class BookBrainAI:
             print("User Id doesn't have the pdf")
             return prompt
 
-        extracted_context = pdf_manager.extract_context(context.current_page or 1)
+        extracted_context = pdf_manager.extract_context(context.current_page)
         if not extracted_context or len(extracted_context.strip()) < 500:
             print("Failed edge case")
             return prompt
