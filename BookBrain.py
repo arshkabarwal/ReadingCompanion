@@ -42,7 +42,7 @@ class ReadingContext:
     author: str
     current_chapter: Optional[str] = None
     current_page: Optional[int] = None
-    user_id: str
+    user_id:  Optional[str] = None
     progress_percentage: Optional[float] = None
     user_notes: Optional[str] = None
 
