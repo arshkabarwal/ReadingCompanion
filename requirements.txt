@@ -4,4 +4,4 @@ anthropic
 python-dotenv
 flask_cors 
 pdfminer.six
-fitz
+PyMuPDF

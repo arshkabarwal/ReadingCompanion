@@ -402,11 +402,11 @@ class BookBrainAI:
         return " | ".join(position_parts) if position_parts else "Beginning of book"
 
 def extract_text_with_fitz(filepath: str) -> str:
-        doc = fitz.open(filepath)
-        full_text = ""
-        for page in doc:
-            full_text += page.get_text()
-        return full_text
+    doc = fitz.open(filepath)
+    full_text = ""
+    for page in doc:
+        full_text += page.get_text()
+    return full_text
 
 def obtain_and_create_progress(data):
     # TODO: make current page optional
