@@ -401,7 +401,8 @@ def obtain_and_create_progress(data):
         book_title=data["book_title"],
         author=data["author"],
         current_chapter=data["current_chapter"],
-        current_page=data["current_page"]
+        current_page=data["current_page"],
+        user_id=data.get("user_id")
     )
 
     return context
