@@ -42,6 +42,7 @@ class ReadingContext:
     author: str
     current_chapter: Optional[str] = None
     current_page: Optional[int] = None
+    user_id: str
     progress_percentage: Optional[float] = None
     user_notes: Optional[str] = None
 
@@ -404,7 +405,7 @@ def obtain_and_create_progress(data):
         current_page=data["current_page"],
         user_id=data.get("user_id")
     )
-
+    print("Test")
     return context
 
 # Usage Examples
@@ -448,6 +449,7 @@ def summary():
         ai = BookBrainAI()  # Make sure to set your API key in Config
         print("=== Catch me up Summary ===")
         # response = ai.character_lookup("Taffa", context)
+        print(context.user_id)
         if PdfManager(context.user_id).exists():
             print("PDF uploaded.")
             answer = ai.catch_up_summary_with_pdf(context)
