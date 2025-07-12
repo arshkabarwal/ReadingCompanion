@@ -398,11 +398,16 @@ def obtain_and_create_progress(data):
         if field not in data:
             return jsonify({"error": f"Missing field: {field}"}), 400
     
+    try:
+        page = int(data["current_page"])
+    except (ValueError, TypeError):
+        page = None
+
     context = ReadingContext(
         book_title=data["book_title"],
         author=data["author"],
         current_chapter=data["current_chapter"],
-        current_page=data["current_page"],
+        current_page=page,
         user_id=data.get("user_id")
     )
     print("Test")
