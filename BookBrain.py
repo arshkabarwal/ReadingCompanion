@@ -527,7 +527,7 @@ def upload_pdf():
         if file and file.filename.endswith(".pdf"):
             filename = secure_filename(f"{user_id}_uploaded.pdf")
             filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            file.save(filepath)x
+            file.save(filepath)
             text = extract_text_with_fitz(filepath)
             pdf_manager = PdfManager(user_id)
             pdf_manager.save_extracted_text(text)
