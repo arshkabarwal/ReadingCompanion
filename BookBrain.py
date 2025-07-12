@@ -8,6 +8,8 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 from werkzeug.utils import secure_filename
 import os
+from pdfminer.high_level import extract_text
+
 
 
 app = Flask(__name__)
@@ -50,6 +52,37 @@ class QueryType(Enum):
     NICKNAME_RESOLUTION = "nickname_resolution"
     CHARACTER_EXTRACTION = "character_extraction"
 
+class PdfManager:
+    def __init__(self, user_id: str):
+        self.user_id = user_id
+        self.upload_dir = "uploads"
+        self.text_path = os.path.join(self.upload_dir, f"{user_id}_book.txt")
+
+    def exists(self) -> bool:
+        return os.path.exists(self.text_path)
+
+    def load_text(self) -> Optional[str]:
+        if not self.exists():
+            return None
+        try:
+            with open(self.text_path, "r", encoding="utf-8") as f:
+                return f.read()
+        except Exception as e:
+            print(f"Error loading PDF text: {e}")
+            return None
+
+    def extract_context(self, page: int, char_window: int = 1500) -> Optional[str]:
+        text = self.load_text()
+        if not text:
+            return None
+        try:
+            start = max(0, (page - 3) * char_window)
+            end = min(len(text), (page + 1) * char_window)
+            return text[start:end]
+        except Exception as e:
+            print(f"Context slicing error: {e}")
+            return text[:3000]
+        
 class BookBrainAI:
     def __init__(self, api_key: str = None):
         self.client = anthropic.Anthropic(
@@ -93,6 +126,28 @@ class BookBrainAI:
             print(f"API Error (chat): {e}")
             return f"Error: Unable to process conversation - {str(e)}"
         
+
+    def inject_pdf_context(self, prompt: str, context: ReadingContext) -> str:
+        if not context.user_id:
+            return prompt
+
+        pdf_manager = PdfManager(context.user_id)
+        if not pdf_manager.exists():
+            return prompt
+
+        extracted_context = pdf_manager.extract_context(context.current_page or 1)
+        if not extracted_context or len(extracted_context.strip()) < 500:
+            return prompt
+
+        return (
+            f"You're an intelligent reading assistant helping a user recall information from a book.\n"
+            f"They are currently in Chapter {context.current_chapter}, Page {context.current_page}, "
+            f"of '{context.book_title}' by {context.author}.\n"
+            f"Use the following excerpt (up to this point) to inform your response:\n\n"
+            f"--- BEGIN CONTEXT ---\n{extracted_context}\n--- END CONTEXT ---\n\n"
+            + prompt
+        )
+    
     def character_lookup(self, character_name: str, context: ReadingContext) -> str:
         """Look up a specific character with spoiler protection"""
         prompt = (
@@ -115,26 +170,23 @@ class BookBrainAI:
         # prompt = f"""You're an intelligent reading assistant helping a user recall information from a book they are reading. They are currently in Chapter {context.current_chapter}, Page {context.current_page}, of {context.book_title} by {context.author}. Create a quick paragraph summary of what happened in the last chapter."
 
         # Keep the tone friendly and clear, and avoid spoilers for future chapters. Take your time and provide an accurate answer without asking any follow-up questions. Provide a confidence rating."""
-
-        prompt = f"""
-            You are BookBrain, an intelligent reading assistant helping a user recall information from a book they are reading.
-
-            They are currently on Chapter {context.current_chapter}, Page {context.current_page}, of *{context.book_title}* by {context.author}. 
-            The user has just finished reading the previous chapter.
-
-            Please generate a **brief, spoiler-free** summary of ONLY the last completed chapter — using information strictly up to this point in the book.
-
-            ⚠️ Do not include events, characters, or developments from later chapters or pages. 
-            If you are unsure or lack context, say so politely instead of guessing.
-
-            Use a friendly and clear tone.
-            Do not ask any follow-up questions.
-            Avoid speculation and hallucination.
-            Respond with a confidence rating (e.g. High, Medium, Low) at the end.
-            """
+        prompt = f"""You're an intelligent reading assistant helping a user recall information from a book they are reading. They are currently in Chapter {context.current_chapter}, Page {context.current_page}, of {context.book_title} by {context.author}. Create a quick paragraph summary of what happened in the last chapter."
+         Keep the tone friendly and clear, and avoid spoilers for future chapters. Take your time and provide an accurate answer without asking any follow-up questions."""
+        
         print(prompt)
 
         return self._make_request(prompt)
+    
+    def catch_up_summary_with_pdf(self, context: ReadingContext, 
+                        user_last_memory: str = None) -> str:
+        """Provide a 'catch me up' summary for when users return to a book"""
+
+        # prompt = f"""You're an intelligent reading assistant helping a user recall information from a book they are reading. They are currently in Chapter {context.current_chapter}, Page {context.current_page}, of {context.book_title} by {context.author}. Create a quick paragraph summary of what happened in the last chapter."
+
+        prompt = "Create a quick paragraph summary of what happened in the last chapter."
+        full_prompt = self.inject_pdf_context(prompt, context)
+        return self._make_request(full_prompt)
+
     
     def voice_question(self, context: ReadingContext, voice_info: str):
 
@@ -279,24 +331,6 @@ class BookBrainAI:
         )
         return self._make_request(prompt)
 
-    # def preset_characters_in_character_gallery(self, context: ReadingContext) -> str:
-    #     """Add characters to the character gallery"""
-    #     prompt = (
-    #         f"You're an intelligent reading assistant helping display main characters from a book they are reading. "
-    #         f"They are currently in Chapter {context.current_chapter}, Page {context.current_page}, "
-    #         f"of '{context.book_title}' by {context.author}.\n\n"
-    #         "Extract all the main characters up to this point in the book and provide:\n"
-    #         "1. Character name (full name if available)\n"
-    #         "2. Any nicknames, titles, or alternative names mentioned\n"
-    #         "3. Basic role/description in a sentence\n"
-    #         "4. Important 2-3 traits or characteristics noted\n"
-    #         "5. Key relationships with other characters mentioned up to this point\n"
-    #         "Keep the tone friendly and clear, and avoid spoilers for future chapters if possible. "
-    #         "Ensure that there are no hallucinations. Take your time and provide an accurate answer "
-    #         "without asking any follow-up questions.\n\n"
-    #         "Also, include a confidence rating (e.g., High, Medium, Low) based on how certain you are of the answer."
-    #     )
-    #     return self._make_request(prompt)
 #     def extract_characters_from_text(self, book_text: str, book_info: ReadingContext) -> str:
 #         """Extract and catalog characters from book text (for building initial database)"""
 #         prompt = f"""
@@ -406,7 +440,10 @@ def summary():
         ai = BookBrainAI()  # Make sure to set your API key in Config
         print("=== Catch me up Summary ===")
         # response = ai.character_lookup("Taffa", context)
-        answer = ai.catch_up_summary(context)
+        if PdfManager(context.user_id).exists():
+            answer = ai.catch_up_summary_with_pdf(context)
+        else:
+            answer = ai.catch_up_summary(context)
         print(answer)
         return jsonify({"answer": answer})
         
@@ -450,18 +487,26 @@ def voice_assistant_with_context():
 @app.route("/upload-pdf", methods=["POST"])
 def upload_pdf():
     try:
-        file = request.files.get('pdf')
-        print(file)
+        user_id = request.form.get("user_id")
+        file = request.files.get("pdf")
         if file and file.filename.endswith(".pdf"):
-            filename = secure_filename(file.filename)
+            filename = secure_filename(f"{user_id}_uploaded.pdf")
             filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             file.save(filepath)
-            return {"status": "success", "path": filepath}, 200
-        
+
+            # Extract text
+            text = extract_text(filepath)
+            book_txt_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{user_id}_book.txt")
+            with open(book_txt_path, "w", encoding="utf-8") as f:
+                f.write(text)
+
+            return {"status": "success", "path": book_txt_path}, 200
+
         return {"error": "No PDF file provided"}, 400
-        
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 @app.route("/preset_characters_to_gallery", methods=["POST"])
 def preset_character_gallery():

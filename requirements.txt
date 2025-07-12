@@ -3,3 +3,4 @@ gunicorn
 anthropic
 python-dotenv
 flask_cors 
+pdfminer.six
