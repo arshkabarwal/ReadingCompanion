@@ -141,10 +141,12 @@ class BookBrainAI:
 
         pdf_manager = PdfManager(context.user_id)
         if not pdf_manager.exists():
+            print("User Id doesn't have the pdf")
             return prompt
 
         extracted_context = pdf_manager.extract_context(context.current_page or 1)
         if not extracted_context or len(extracted_context.strip()) < 500:
+            print("Failed edge case")
             return prompt
 
         return (
@@ -193,6 +195,7 @@ class BookBrainAI:
 
         prompt = "Create a quick paragraph summary of what happened in the last chapter."
         full_prompt = self.inject_pdf_context(prompt, context)
+        print(full_prompt)
         return self._make_request(full_prompt)
 
     
