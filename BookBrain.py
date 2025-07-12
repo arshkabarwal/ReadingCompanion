@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from werkzeug.utils import secure_filename
 import os
 from pdfminer.high_level import extract_text
+import fitz
 
 
 
@@ -90,6 +91,8 @@ class PdfManager:
         except Exception as e:
             print(f"Context slicing error: {e}")
             return text[:3000]
+
+
 
     def save_extracted_text(self, raw_text: str):
         try:
@@ -398,6 +401,12 @@ class BookBrainAI:
         
         return " | ".join(position_parts) if position_parts else "Beginning of book"
 
+def extract_text_with_fitz(filepath: str) -> str:
+        doc = fitz.open(filepath)
+        full_text = ""
+        for page in doc:
+            full_text += page.get_text()
+        return full_text
 
 def obtain_and_create_progress(data):
     # TODO: make current page optional
@@ -518,9 +527,8 @@ def upload_pdf():
         if file and file.filename.endswith(".pdf"):
             filename = secure_filename(f"{user_id}_uploaded.pdf")
             filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            file.save(filepath)
-
-            text = extract_text(filepath)
+            file.save(filepath)x
+            text = extract_text_with_fitz(filepath)
             pdf_manager = PdfManager(user_id)
             pdf_manager.save_extracted_text(text)
 
