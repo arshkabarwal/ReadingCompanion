@@ -82,6 +82,13 @@ class PdfManager:
         except Exception as e:
             print(f"Context slicing error: {e}")
             return text[:3000]
+
+    def save_extracted_text(self, raw_text: str):
+        try:
+            with open(self.text_path, "w", encoding="utf-8") as f:
+                f.write(raw_text)
+        except Exception as e:
+            print(f"Error saving extracted PDF text: {e}")
         
 class BookBrainAI:
     def __init__(self, api_key: str = None):
@@ -441,6 +448,7 @@ def summary():
         print("=== Catch me up Summary ===")
         # response = ai.character_lookup("Taffa", context)
         if PdfManager(context.user_id).exists():
+            print("PDF uploaded.")
             answer = ai.catch_up_summary_with_pdf(context)
         else:
             answer = ai.catch_up_summary(context)
@@ -494,19 +502,16 @@ def upload_pdf():
             filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             file.save(filepath)
 
-            # Extract text
             text = extract_text(filepath)
-            book_txt_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{user_id}_book.txt")
-            with open(book_txt_path, "w", encoding="utf-8") as f:
-                f.write(text)
+            pdf_manager = PdfManager(user_id)
+            pdf_manager.save_extracted_text(text)
 
-            return {"status": "success", "path": book_txt_path}, 200
+            return {"status": "success", "path": pdf_manager.text_path}, 200
 
         return {"error": "No PDF file provided"}, 400
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 @app.route("/preset_characters_to_gallery", methods=["POST"])
 def preset_character_gallery():
